@@ -8,7 +8,10 @@ app = Flask(__name__)
 
 @app.route('/')
 def serve_map():
-    return send_from_directory('.', 'map.html')  # serve the map.html file
+    #return send_from_directory('.', 'map.html')  # serve the map.html file
+    # Get the absolute path of the directory where app.py is located
+    dir_path = os.path.abspath(os.path.dirname(__file__))
+    return send_from_directory(dir_path, 'map.html')
 
 # Mapbox Geocoding API setup
 MAPBOX_API_KEY = 'pk.eyJ1Ijoic3RhbWxlcm4iLCJhIjoiY2l3MnkwZ2tnMDEwejJ6anZtM240c2d3byJ9.ZTqhEH-1r0WelPq2n0rshQ'

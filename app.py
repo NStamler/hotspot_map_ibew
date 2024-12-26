@@ -6,65 +6,76 @@ import os
 
 app = Flask(__name__)
 
-@app.route('/')
-def serve_map():
-    #return send_from_directory('.', 'map.html')  # serve the map.html file
-    
-    # Get the absolute path of the directory where app.py is located
-    dir_path = os.path.abspath(os.path.dirname(__file__))
-    
-    #return send_from_directory(dir_path, 'map.html')
-    return send_from_directory(
-            directory=dir_path,
-            path='map.html',
-            mimetype='text/html'
-        )
-
 # Mapbox Geocoding API setup
-MAPBOX_API_KEY = 'pk.eyJ1Ijoic3RhbWxlcm4iLCJhIjoiY2l3MnkwZ2tnMDEwejJ6anZtM240c2d3byJ9.ZTqhEH-1r0WelPq2n0rshQ'
-geocoding_url = "https://api.mapbox.com/geocoding/v5/mapbox.places/{city}.json?access_token=" + MAPBOX_API_KEY
+MAPBOX_API_KEY = "pk.eyJ1Ijoic3RhbWxlcm4iLCJhIjoiY2l3MnkwZ2tnMDEwejJ6anZtM240c2d3byJ9.ZTqhEH-1r0WelPq2n0rshQ"
+GEOCODING_URL_TEMPLATE = "https://api.mapbox.com/geocoding/v5/mapbox.places/{city}.json?access_token={}"
 
-# Scrape hot spots from Where2Bro
+# ===========================================================
+#                  UPDATED SCRAPING LOGIC
+# ===========================================================
 def scrape_hot_spots():
     url = "https://where2bro.com/hot-spots/"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "html.parser")
+
     hot_spots = []
 
-    for li in soup.find_all('li'):
-        text = li.get_text(strip=True)
-        if '(' in text and ')' in text:
-            city, hot_spot = text.split('(')
-            city = city.strip()
-            hot_spot = hot_spot.replace(')', '').strip()
+    # Loop through all paragraph tags
+    for p in soup.find_all('p'):
+        text = p.get_text(strip=True)
+        # We want lines like: "LU-237 NIAGARA FALLS, NY (ALBION PRISON)"
+        # Check if the line starts with 'LU-' and contains parentheses
+        if text.startswith("LU-") and "(" in text and ")" in text:
+            # Example: "LU-237 NIAGARA FALLS, NY (ALBION PRISON)"
+            # Split around '('
+            parts = text.split("(", 1)  # ["LU-237 NIAGARA FALLS, NY ", "ALBION PRISON)"]
+            city_part = parts[0].strip()  # "LU-237 NIAGARA FALLS, NY"
+            extra_info = parts[1].replace(")", "").strip()  # "ALBION PRISON"
 
-            # Fetch coordinates using Mapbox Geocoding API
-            coordinates = get_coordinates(city)
+            # city_part often looks like "LU-237 NIAGARA FALLS, NY"
+            # So remove the "LU-xxx" portion
+            city_parts = city_part.split(" ", 1)  # ["LU-237", "NIAGARA FALLS, NY"]
+            if len(city_parts) > 1:
+                city = city_parts[1].strip()
+            else:
+                city = city_part  # fallback if format is unexpected
+
+            # Fetch coordinates for the city using Mapbox
+            coords = get_coordinates(city)
 
             hot_spots.append({
-                "name": hot_spot,
                 "city": city,
-                "coordinates": coordinates
+                "name": extra_info,       # the portion in parentheses
+                "coordinates": coords     # [lng, lat]
             })
 
     return hot_spots
 
-# Fetch coordinates for a city using Mapbox Geocoding API
 def get_coordinates(city):
-    geocoding_url_full = geocoding_url.format(city=city)
-    response = requests.get(geocoding_url_full)
+    # Build the geocoding URL
+    url = GEOCODING_URL_TEMPLATE.format(city, MAPBOX_API_KEY)
+    response = requests.get(url)
     data = response.json()
-    if data['features']:
-        coordinates = data['features'][0]['geometry']['coordinates']
-        return coordinates
+    if data.get('features'):
+        return data['features'][0]['geometry']['coordinates']  # [lng, lat]
     else:
-        return [0, 0]  # Default coordinates if not found
+        return [0, 0]  # If no results, fallback to [0,0]
 
-# Define an API endpoint to serve the hot spots data as JSON
+@app.route('/')
+def serve_map():
+    # Serve your map.html from the same directory
+    dir_path = os.path.abspath(os.path.dirname(__file__))
+    return send_from_directory(
+        directory=dir_path,
+        path='map.html',
+        mimetype='text/html'
+    )
+
 @app.route('/hot_spots', methods=['GET'])
 def hot_spots():
-    hot_spots = scrape_hot_spots()
-    return jsonify(hot_spots)
+    spots = scrape_hot_spots()
+    return jsonify(spots)
 
 if __name__ == '__main__':
+    # If running locally, set debug=True for development
     app.run(debug=True)

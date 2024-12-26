@@ -1,9 +1,14 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 import requests
 from bs4 import BeautifulSoup
 import json
+import os
 
 app = Flask(__name__)
+
+@app.route('/')
+def serve_map():
+    return send_from_directory('.', 'map.html')  # serve the map.html file
 
 # Mapbox Geocoding API setup
 MAPBOX_API_KEY = 'pk.eyJ1Ijoic3RhbWxlcm4iLCJhIjoiY2l3MnkwZ2tnMDEwejJ6anZtM240c2d3byJ9.ZTqhEH-1r0WelPq2n0rshQ'

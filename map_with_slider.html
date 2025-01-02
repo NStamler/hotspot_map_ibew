@@ -2,25 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Hot Spots Over Time</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
+  <title>IBEW Hot Spots Map</title>
+  
   <!-- Mapbox GL JS -->
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.7.0/mapbox-gl.css" rel="stylesheet" />
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.7.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.7.0/mapbox-gl.css" rel="stylesheet" />
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
 
   <style>
+    /* Basic styling */
+    body {
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
     #map {
       width: 100%;
       height: 500px;
     }
     #controls {
-      margin-top: 10px;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 10px;
+      margin: 20px;
     }
-    #selectedDate {
+    #date-slider {
+      width: 80%;
+    }
+    #selected-date {
+      margin-top: 10px;
       font-weight: bold;
     }
   </style>
@@ -30,81 +43,79 @@
 <h1>IBEW Hot Spots Map (Over Time)</h1>
   <h2>Data updated 8am ET every morning</h2>
   <h6>All data from <a href="https://where2bro.com/hot-spots/">Where2Bro</a> by Bo Moreno</h6>
+  
+  <!-- Map Container -->
+  <div id="map"></div>
+  
+  <!-- Slider Controls -->
+  <div id="controls">
+    <input id="date-slider" type="range" min="0" max="0" value="0" />
+    <div id="selected-date">Loading dates...</div>
+  </div>
 
-<div id="map"></div>
+  <script>
+    // Your Mapbox access token
+    mapboxgl.accessToken = 'pk.eyJ1Ijoic3RhbWxlcm4iLCJhIjoiY2l3MnkwZ2tnMDEwejJ6anZtM240c2d3byJ9.ZTqhEH-1r0WelPq2n0rshQ';
 
-<div id="controls">
-  <label for="dateSlider">Select Date:</label>
-  <input type="range" id="dateSlider" min="0" max="0" value="0" />
-  <span id="selectedDate"></span>
-</div>
+    // Initialize the map
+    var map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/streets-v11',
+      center: [-98.35, 39.50], // Center of the US
+      zoom: 3 // Ensure all states are visible
+    });
 
-<script>
-  // 1) Initialize Mapbox
-  mapboxgl.accessToken = 'pk.eyJ1Ijoic3RhbWxlcm4iLCJhIjoiY2l3MnkwZ2tnMDEwejJ6anZtM240c2d3byJ9.ZTqhEH-1r0WelPq2n0rshQ';
-  const map = new mapboxgl.Map({
-    container: 'map',
-    style: 'mapbox://styles/mapbox/streets-v11',
-    center: [-98.35, 39.50],
-    zoom: 3
-  });
+    // Slider and map update logic
+    var dateSlider = document.getElementById('date-slider');
+    var selectedDateText = document.getElementById('selected-date');
 
-  // Track markers so we can remove them before adding new ones
-  let currentMarkers = [];
-
-  // 2) Fetch list of dates
-  fetch('/hot_spots/dates')
-    .then(response => response.json())
-    .then(dates => {
-      if (dates.length === 0) {
-        console.log("No date files found!");
-        return;
-      }
-
-      const dateSlider = document.getElementById('dateSlider');
-      dateSlider.min = 0;
-      dateSlider.max = dates.length - 1;
-      dateSlider.value = dates.length - 1; // default to last date
-      document.getElementById('selectedDate').textContent = dates[dateSlider.value];
-
-      // When slider changes, load that date's data
-      dateSlider.addEventListener('input', () => {
-        const index = parseInt(dateSlider.value, 10);
-        const dateStr = dates[index];
-        document.getElementById('selectedDate').textContent = dateStr;
-        loadDataForDate(dateStr);
-      });
-
-      // Load the most recent date on page load
-      const latestDate = dates[dates.length - 1];
-      loadDataForDate(latestDate);
-    })
-    .catch(err => console.error("Error fetching date list:", err));
-
-  // 3) Function to load data for a specific date
-  function loadDataForDate(dateStr) {
-    fetch('/hot_spots/' + dateStr)
+    // Fetch available dates and set up the slider
+    fetch('/hot_spots/dates')
       .then(response => response.json())
-      .then(hotSpots => {
-        // Remove old markers
-        currentMarkers.forEach(m => m.remove());
-        currentMarkers = [];
+      .then(dates => {
+        if (dates.length > 0) {
+          // Set slider properties
+          dateSlider.max = dates.length - 1;
+          dateSlider.value = dates.length - 1; // Default to the latest date
+          selectedDateText.textContent = `Date: ${dates[dates.length - 1]}`;
 
-        // Add new markers
-        hotSpots.forEach(spot => {
-          const marker = new mapboxgl.Marker()
-            .setLngLat(spot.coordinates)
-            .setPopup(new mapboxgl.Popup().setText(spot.name))
-            .addTo(map);
+          // Fetch and display data for the latest date on page load
+          fetch(`/hot_spots/${dates[dates.length - 1]}`)
+            .then(response => response.json())
+            .then(hotSpots => {
+              hotSpots.forEach(spot => {
+                new mapboxgl.Marker()
+                  .setLngLat(spot.coordinates)
+                  .setPopup(new mapboxgl.Popup().setText(`${spot.name} (${spot.extraInfo})`))
+                  .addTo(map);
+              });
+            });
 
-          currentMarkers.push(marker);
-        });
+          // Update map when the slider is moved
+          dateSlider.addEventListener('input', () => {
+            var index = dateSlider.value;
+            selectedDateText.textContent = `Date: ${dates[index]}`;
+
+            // Remove all markers
+            document.querySelectorAll('.mapboxgl-marker').forEach(marker => marker.remove());
+
+            // Fetch and display data for the selected date
+            fetch(`/hot_spots/${dates[index]}`)
+              .then(response => response.json())
+              .then(hotSpots => {
+                hotSpots.forEach(spot => {
+                  new mapboxgl.Marker()
+                    .setLngLat(spot.coordinates)
+                    .setPopup(new mapboxgl.Popup().setText(`${spot.name} (${spot.extraInfo})`))
+                    .addTo(map);
+                });
+              });
+          });
+        } else {
+          selectedDateText.textContent = 'No data available yet';
+        }
       })
-      .catch(err => {
-        console.error("Error loading data for date:", dateStr, err);
-      });
-  }
-</script>
-
+      .catch(error => console.error('Error fetching dates:', error));
+  </script>
 </body>
 </html>

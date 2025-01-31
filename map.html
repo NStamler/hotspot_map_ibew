@@ -3,24 +3,48 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Interactive Hot Spots Map</title>
+  <title>IBEW Hot Spots Map</title>
   
   <!-- Mapbox GL JS -->
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.7.0/mapbox-gl.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.7.0/mapbox-gl.css" rel="stylesheet" />
   
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
+
   <style>
-    /* Basic map container styling */
+    /* Basic styling */
+    body {
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
     #map {
       width: 100%;
       height: 500px;
     }
+    #controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 20px;
+    }
+    #date-slider {
+      width: 80%;
+    }
+    #selected-date {
+      margin-top: 10px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
-  <!-- Container where the map is rendered -->
-  <div id="map"></div>
 
+<h1>IBEW Hot Spots Map (Over Time)</h1>
+  <h6>All data from <a href="https://where2bro.com/hot-spots/">Where2Bro</a> by Bo Moreno</h6>
+  
+  <!-- Map Container -->
+  <div id="map"></div>
   <script>
     // Your Mapbox access token
     mapboxgl.accessToken = 'pk.eyJ1Ijoic3RhbWxlcm4iLCJhIjoiY2l3MnkwZ2tnMDEwejJ6anZtM240c2d3byJ9.ZTqhEH-1r0WelPq2n0rshQ';
